@@ -8,6 +8,8 @@ use Illuminate\Http\Request;
 use function PHPSTORM_META\type;
 use function PHPUnit\Framework\isNull;
 
+use App\Models\Advertisement;
+
 class WebScrapperController extends Controller
 {
     public function main(Request $request)
@@ -19,12 +21,30 @@ class WebScrapperController extends Controller
         if(isNull($url)){
             $data = $this->scrape($request, $url);
         }
+
+        $this->insertToDBAdvertisement($data);
+
         return view('webscrapper')->with("url", $url)->with("data", $data);
+    }
+
+    private function insertToDBAdvertisement($data){
+        $advertisement = new Advertisement();
+
+        $advertisement->title = $data['title'];
+        $advertisement->year = $data['year'];
+        $advertisement->mileage = $data['mileage'];
+        $advertisement->price = $data['price'];
+        $advertisement->make_model = $data['make_model'];
+        $advertisement->fuel = $data['fuel'];
+        $advertisement->body_type = $data['body_type'];
+        $advertisement->views = $data['views'];
+        $advertisement->description = $data['description'];
+
+        $advertisement->save();
     }
 
     private function scrape(Request $request, $url){
         // $data = $this->getPage($url);
-        
 
         if (!$request->session()->has('html_data1')){
             $filename = "C:\\Users\\RedenIce\\Desktop\\MySpace\\html.txt";

@@ -16,14 +16,14 @@ class CreateAdvertisementsTable extends Migration
         Schema::create('advertisements', function (Blueprint $table) {
             $table->id();
             $table->string('title');
-            $table->integer('year',);
-            $table->integer('mileage');
+            $table->integer('year')->nullable();
+            $table->integer('mileage')->nullable();
             $table->float('price');
-            $table->string('make_model');
-            $table->string('fuel');
-            $table->string('body_type');
-            $table->integer('views');
-            $table->text('description');
+            $table->string('make_model')->nullable();
+            $table->string('fuel')->nullable();
+            $table->string('body_type')->nullable();
+            $table->integer('views')->nullable();
+            $table->text('description')->nullable();
 
             $table->timestamps();
         });
