@@ -39,72 +39,72 @@
                     <tr>
                         <td>title</td>
                         <td>
-                            @if (isset($adData['title']))
-                                {{ $adData['title'] }}
+                            @if (isset($data['title']))
+                                {{ $data['title'] }}
                             @endif
                         </td>
                     </tr>
                     <tr>
                         <td>year</td>
                         <td>
-                            @if (isset($adData['year']))
-                                {{ $adData['year'] }}
+                            @if (isset($data['year']))
+                                {{ $data['year'] }}
                             @endif
                         </td>
                     </tr>
                     <tr>
                         <td>mileage</td>
                         <td>
-                            @if (isset($adData['mileage']))
-                                {{ $adData['mileage'] }}
+                            @if (isset($data['mileage']))
+                                {{ $data['mileage'] }}
                             @endif
                         </td>
                     </tr>
                     <tr>
                         <td>price</td>
                         <td>
-                            @if (isset($adData['price']))
-                                {{ $adData['price'] }}
+                            @if (isset($data['price']))
+                                {{ $data['price'] }}
                             @endif
                         </td>
                     </tr>
                     <tr>
                         <td>make_model</td>
                         <td>
-                            @if (isset($adData['make_model']))
-                                {{ $adData['make_model'] }}
+                            @if (isset($data['make_model']))
+                                {{ $data['make_model'] }}
                             @endif
                         </td>
                     </tr>
                     <tr>
                         <td>fuel</td>
                         <td>
-                            @if (isset($adData['fuel']))
-                                {{ $adData['fuel'] }}
+                            @if (isset($data['fuel']))
+                                {{ $data['fuel'] }}
                             @endif
                         </td>
                     </tr>
                     <tr>
                         <td>body_type</td>
                         <td>
-                            @if (isset($adData['body_type']))
-                                {{ $adData['body_type'] }}
+                            @if (isset($data['body_type']))
+                                {{ $data['body_type'] }}
                             @endif
                         </td>
                     </tr>
                     <tr>
                         <td>views</td>
                         <td>
-                            @if (isset($adData['views']))
-                                {{ $adData['views'] }}
+                            @if (isset($data['views']))
+                                {{ $data['views'] }}
                             @endif
                         </td>
                     </tr>
                     <tr>
                         <td>description</td>
                         <td>
-                            @if (isset($adData['description']))
-                                {{ $adData['description'] }}
+                            @if (isset($data['description']))
+                                {{ $data['description'] }}
                             @endif
                         </td>
                     </tr>
