@@ -27,7 +27,7 @@
                 <div id="url-info" style="padding-top: 20px">
                     <h3>Results from:</h3>
                     @if (isset($url))
-                        {{ $url }}
+                        <a href="{{$url}}">{{$url}}</a>
                     @endif
                 </div>
 
