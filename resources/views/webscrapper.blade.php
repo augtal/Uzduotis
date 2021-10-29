@@ -15,8 +15,8 @@
     </head>
     <body>
         <div class="container">
-            <div>
-                <div style="width:300px; margin:0 auto;">
+            <div class="centerDiv">
+                <div id="url-input">
                     <form action="/" method="GET">
                         <input  type="url" name="url" id="url" placeholder="Copy url to this field... ">
                         <button type="submit" class="btn">
@@ -24,6 +24,91 @@
                         </button>
                     </form>
                 </div>
+                <div id="url-info" style="padding-top: 20px">
+                    <h3>Results from:</h3>
+                    @if (isset($url))
+                        {{ $url }}
+                    @endif
+                </div>
+
+                <table >
+                    <tr>
+                        <th>Field</th>
+                        <th>Parsed data</th>
+                    </tr>
+                    <tr>
+                        <td>title</td>
+                        <td>
+                            @if (isset($adData['title']))
+                                {{ $adData['title'] }}
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>year</td>
+                        <td>
+                            @if (isset($adData['year']))
+                                {{ $adData['year'] }}
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>mileage</td>
+                        <td>
+                            @if (isset($adData['mileage']))
+                                {{ $adData['mileage'] }}
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>price</td>
+                        <td>
+                            @if (isset($adData['price']))
+                                {{ $adData['price'] }}
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>make_model</td>
+                        <td>
+                            @if (isset($adData['make_model']))
+                                {{ $adData['make_model'] }}
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>fuel</td>
+                        <td>
+                            @if (isset($adData['fuel']))
+                                {{ $adData['fuel'] }}
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>body_type</td>
+                        <td>
+                            @if (isset($adData['body_type']))
+                                {{ $adData['body_type'] }}
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>views</td>
+                        <td>
+                            @if (isset($adData['views']))
+                                {{ $adData['views'] }}
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>description</td>
+                        <td>
+                            @if (isset($adData['description']))
+                                {{ $adData['description'] }}
+                            @endif
+                        </td>
+                    </tr>
+                </table>
             </div>
         </div>
     </body>
