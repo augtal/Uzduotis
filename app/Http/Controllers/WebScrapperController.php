@@ -12,11 +12,14 @@ use App\Models\Advertisement;
 
 class WebScrapperController extends Controller
 {
+    private $user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Brave Chrome/83.0.4103.116 Safari/537.36";
+    private $proxy = "93.158.214.155:3128"; //93.158.214.155  Port:3128  HTTPS  Netherlands
+
+
     public function main(Request $request)
     {
         //$url = $request->input('url');
-        $url = "https://www.marktplaats.nl/a/auto-s/honda/m1765602260-honda-accord-2-0i-elegance-automaat.html22";
-        // $url = "https://symfony.com/blog/";
+        $url = "https://www.marktplaats.nl/a/auto-s/honda/m1765602260-honda-accord-2-0i-elegance-automaat.html";
         
         if(isNull($url)){
             $data = $this->scrape($request, $url);
@@ -28,19 +31,21 @@ class WebScrapperController extends Controller
     }
 
     private function insertToDBAdvertisement($data){
-        $advertisement = new Advertisement();
+        if(!Advertisement::where('title', '=', $data['title'])->exists()){
+            $advertisement = new Advertisement();
 
-        $advertisement->title = $data['title'];
-        $advertisement->year = $data['year'];
-        $advertisement->mileage = $data['mileage'];
-        $advertisement->price = $data['price'];
-        $advertisement->make_model = $data['make_model'];
-        $advertisement->fuel = $data['fuel'];
-        $advertisement->body_type = $data['body_type'];
-        $advertisement->views = $data['views'];
-        $advertisement->description = $data['description'];
+            $advertisement->title = $data['title'];
+            $advertisement->year = $data['year'];
+            $advertisement->mileage = $data['mileage'];
+            $advertisement->price = $data['price'];
+            $advertisement->make_model = $data['make_model'];
+            $advertisement->fuel = $data['fuel'];
+            $advertisement->body_type = $data['body_type'];
+            $advertisement->views = $data['views'];
+            $advertisement->description = $data['description'];
 
-        $advertisement->save();
+            $advertisement->save();
+        }
     }
 
     private function scrape(Request $request, $url){
@@ -69,6 +74,8 @@ class WebScrapperController extends Controller
 
         $dirtyData = $this->getDirtyDataFromPage($PageXPath);
 
+        $this->downloadImage($dirtyData);
+
         return $this->dataCleanUp($dirtyData);
     }
 
@@ -87,15 +94,16 @@ class WebScrapperController extends Controller
         
         if (array_key_exists('kilometerstand', $dirtyData))
         {
-            preg_match_all("/\d+\.\d+/", $dirtyData['kilometerstand'], $milage);
-            $cleanData['mileage'] = intval(round($milage[0][0], 0));
+            preg_match_all("/\d+\.\d+/", $dirtyData['kilometerstand'], $matches);
+            $milage = floatval(str_replace('.', '', $matches[0][0]));
+            $cleanData['mileage'] = intval(round($milage, 0));
         }
         else
             $cleanData['mileage'] = null;
 
         if (array_key_exists('price', $dirtyData)){
-            preg_match_all("/\d+,\d+/", str_replace('.', '', $dirtyData['price']), $price);
-            $cleanData['price'] = floatval($price[0][0]);
+            preg_match_all("/\d+,\d+/", str_replace('.', '', $dirtyData['price']), $matches);
+            $cleanData['price'] = floatval(str_replace('.', '', $matches[0][0]));;
         }
         else
             $cleanData['price'] = null;
@@ -133,20 +141,24 @@ class WebScrapperController extends Controller
 
         #title
         $query = '//*[@id="title"]';
-        $data['title'] = $PageXPath->query($query)->item(0)->nodeValue;
+        $data['title'] = $PageXPath->query($query)[0]->nodeValue;
 
         #views
         $query = '//*[@id="content"]/section/section[1]/section[1]/section[1]/div[1]/span[1]/span[3]';
-        $data['views'] = $PageXPath->query($query)->item(0)->nodeValue;
+        $data['views'] = $PageXPath->query($query)[0]->nodeValue;
 
         #price
         $query = '//*[@id="vip-ad-price-container"]/span';
-        $data['price'] = $PageXPath->query($query)->item(0)->nodeValue;
+        $data['price'] = $PageXPath->query($query)[0]->nodeValue;
 
-        #item table data
+        #image URL
+        $query = '//*[@id="vip-gallery-thumbs"]//img/@src';
+        $item = "https:" . $PageXPath->query($query)[0]->value;
+        $data['imageURL'] = $item;
+
+        #identify what kind of advertisement it is
         $query = '//*[@id="content"]/section/section[1]/section[4]/div[2]/div[.]/h2';
-        $advertisementType = $PageXPath->query($query)->item(0)->nodeValue;
-
+        $advertisementType = $PageXPath->query($query)[0]->nodeValue;
         preg_match_all('/\S+/', $advertisementType, $type);
 
         // for car
@@ -156,11 +168,17 @@ class WebScrapperController extends Controller
         // for camper
         elseif(strtolower($type[0][0]) == "kenmerken"){
             $data = array_merge($data, $this->extractCamper($PageXPath));
+
         }
 
         #item description
-        $query = '//*[@id="vip-ad-description"]';
-        $data['description'] = $PageXPath->query($query)->item(0)->nodeValue;
+        $query = '//*[@id="vip-ad-description"]/text()';
+        $item = $PageXPath->query($query);
+        $desc = "";
+        foreach ($item as $node) {
+            $desc = $desc . $node->nodeValue . "\n";
+        }
+        $data['description'] = $desc;
 
         return $data;
     }
@@ -173,7 +191,7 @@ class WebScrapperController extends Controller
         for ($i=1; $i < count($itemsCount); $i++) { 
             $new_query = '//*[@id="car-attributes"]/div[1]/div[' . $i . ']';
             $info = $PageXPath->query($new_query);
-            $item = explode(':', $info->item(0)->nodeValue);
+            $item = explode(':', $info[0]->nodeValue);
 
             if(preg_match_all("/.erk/", $item[0], $value)){
                 $data[strtolower($value[0][0])] = trim(str_replace("\r\n", "", $item[1]));
@@ -204,21 +222,36 @@ class WebScrapperController extends Controller
     private function getPage($url){
         $curl = curl_init();
 
-        $user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Brave Chrome/83.0.4103.116 Safari/537.36";
-        $proxy = "93.158.214.155:3128"; //93.158.214.155	Port:3128 HTTPS Netherlands
-
         curl_setopt($curl, CURLOPT_URL, $url);
-        curl_setopt($curl, CURLOPT_PROXY, $proxy);
+        curl_setopt($curl, CURLOPT_PROXY, $this->proxy);
         curl_setopt($curl, CURLOPT_VERBOSE, 1);
         curl_setopt($curl, CURLOPT_FOLLOWLOCATION, 1);
         curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
         curl_setopt($curl, CURLOPT_HEADER, 1);
-        curl_setopt($curl, CURLOPT_USERAGENT, $user_agent);
+        curl_setopt($curl, CURLOPT_USERAGENT, $this->user_agent);
 
         $data = curl_exec($curl);
         curl_close($curl);
 
         return $data;
+    }
+
+    private function downloadImage($data){
+        $curl = curl_init();
+
+        curl_setopt($curl, CURLOPT_URL, $data['imageURL']);
+        curl_setopt($curl, CURLOPT_PROXY, $this->proxy);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($curl, CURLOPT_HEADER, 0);
+        curl_setopt($curl, CURLOPT_USERAGENT, $this->user_agent);
+
+        $image = curl_exec($curl);
+        curl_close($curl);
+
+        $extension = explode(".", $data['imageURL']);
+        $fileName = "" . str_replace('.','', $data['title']) . "." . strtolower($extension[count($extension)-1]);
+
+        file_put_contents("images/AdvertisementThumbnails/" . $fileName, $image);
     }
 
     private function XPathOBJ($rawData){
