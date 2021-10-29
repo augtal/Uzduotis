@@ -204,15 +204,16 @@ class WebScrapperController extends Controller
     private function getPage($url){
         $curl = curl_init();
 
+        $user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Brave Chrome/83.0.4103.116 Safari/537.36";
+        $proxy = "93.158.214.155:3128"; //93.158.214.155	Port:3128 HTTPS Netherlands
+
         curl_setopt($curl, CURLOPT_URL, $url);
+        curl_setopt($curl, CURLOPT_PROXY, $proxy);
         curl_setopt($curl, CURLOPT_VERBOSE, 1);
-        
+        curl_setopt($curl, CURLOPT_FOLLOWLOCATION, 1);
         curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($curl, CURLOPT_AUTOREFERER, false);
-        curl_setopt($curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-        curl_setopt($curl, CURLOPT_HEADER, 0);
-        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, 0);
-        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 0);
+        curl_setopt($curl, CURLOPT_HEADER, 1);
+        curl_setopt($curl, CURLOPT_USERAGENT, $user_agent);
 
         $data = curl_exec($curl);
         curl_close($curl);
