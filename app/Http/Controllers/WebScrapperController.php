@@ -23,11 +23,11 @@ class WebScrapperController extends Controller
     {
         $url = $request->input('url');
 
-        //$data = $this->scrapeFile($request, 7, 'car');
+        $data = $this->scrapeFile($request, 1, 'car');
 
-        if(isNull($url)){
-            $data = $this->scrape($url);
-        }
+        // if(isNull($url)){
+        //     $data = $this->scrape($url);
+        // }
 
         if(!isNull($data)){
             $this->insertToDBAdvertisement($data);
@@ -40,7 +40,7 @@ class WebScrapperController extends Controller
         $sessionFile = "html_data" . $nr;
 
         if (!$request->session()->has($sessionFile)){
-            $filename = "C:\\Users\\RedenIce\\Desktop\\MySpace\\html" . $nr . ".txt";
+            $filename = "test files/html" . $nr . ".txt";
 
             $handle = fopen($filename, 'r') or die("can't open file");
             $data = fread($handle, filesize($filename));
@@ -111,13 +111,10 @@ class WebScrapperController extends Controller
 
     private function getDirtyDataFromPage($PageXPath, $adType){
         $data = array();
-        dd($PageXPath);
 
         #title
-        // $query = '//*[@id="title"]';
-        $query = '/html/body/div[4]/div[3]/section/section[1]/section[1]/section[1]/h1';
+        $query = '//*[@id="title"]';
         $data['title'] = $PageXPath->query($query)[0]->nodeValue;
-        dd($data);
 
         #views
         $query = '//*[@id="content"]/section/section[1]/section[1]/section[1]/div[1]/span[1]/span[3]';
