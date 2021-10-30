@@ -15,6 +15,9 @@ class WebScrapperController extends Controller
     private $user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Brave Chrome/83.0.4103.116 Safari/537.36";
     private $proxy = "93.158.214.155:3128"; //93.158.214.155  Port:3128  HTTPS  Netherlands
 
+    private $image = [500,500,80]; //height, width, quality
+    private $imageThumbnail = [250,250,80]; //height, width, quality
+
 
     public function main(Request $request)
     {
@@ -26,6 +29,7 @@ class WebScrapperController extends Controller
         }
 
         $this->insertToDBAdvertisement($data);
+        var_dump($data['image']);
 
         return view('webscrapper')->with("url", $url)->with("data", $data);
     }
@@ -45,7 +49,10 @@ class WebScrapperController extends Controller
             $advertisement->description = $data['description'];
 
             $advertisement->save();
+            return true;
         }
+        else
+            return false;
     }
 
     private function scrape(Request $request, $url){
@@ -74,7 +81,7 @@ class WebScrapperController extends Controller
 
         $dirtyData = $this->getDirtyDataFromPage($PageXPath);
 
-        $this->downloadImage($dirtyData);
+        $dirtyData['image'] = $this->downloadImage($dirtyData);
 
         return $this->dataCleanUp($dirtyData);
     }
@@ -132,6 +139,11 @@ class WebScrapperController extends Controller
             $cleanData['description'] = str_replace("\r\n", "", $dirtyData['description']);
         else
             $cleanData['description'] = null;
+
+        if (array_key_exists('image', $dirtyData))
+            $cleanData['image'] = $dirtyData['image'];
+        else
+            $cleanData['image'] = null;
         
         return $cleanData;
     }
@@ -237,21 +249,88 @@ class WebScrapperController extends Controller
     }
 
     private function downloadImage($data){
-        $curl = curl_init();
-
-        curl_setopt($curl, CURLOPT_URL, $data['imageURL']);
-        curl_setopt($curl, CURLOPT_PROXY, $this->proxy);
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($curl, CURLOPT_HEADER, 0);
-        curl_setopt($curl, CURLOPT_USERAGENT, $this->user_agent);
-
-        $image = curl_exec($curl);
-        curl_close($curl);
-
+        $title = str_replace('.','', $data['title']);
         $extension = explode(".", $data['imageURL']);
-        $fileName = "" . str_replace('.','', $data['title']) . "." . strtolower($extension[count($extension)-1]);
+        $fileName = "" . $title . "." . strtolower($extension[count($extension)-1]);
 
-        file_put_contents("images/AdvertisementThumbnails/" . $fileName, $image);
+        if(!Advertisement::where('title', '=', $data['title'])->exists()){
+            $curl = curl_init();
+
+            curl_setopt($curl, CURLOPT_URL, $data['imageURL']);
+            curl_setopt($curl, CURLOPT_PROXY, $this->proxy);
+            curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($curl, CURLOPT_HEADER, 0);
+            curl_setopt($curl, CURLOPT_USERAGENT, $this->user_agent);
+
+            $image = curl_exec($curl);
+            curl_close($curl);
+
+            $path = "images/AdvertisementThumbnails/";
+
+            file_put_contents($path . $fileName, $image);
+
+            $this->rescaleImage($fileName, $path, $this->image);
+            $this->rescaleImage($fileName, $path, $this->imageThumbnail, TRUE);
+        }
+
+        return $fileName;
+    }
+
+    private function rescaleImage($fileName, $path, $params, $thumbnail = FALSE){
+        $newWidth = $params[0];
+        $newHeight = $params[1];
+        $quality = $params[2];
+        $file = $path . $fileName;
+
+        $info = getimagesize($file);
+
+        if($info['mime']=='image/png') { 
+            $srcImg = imagecreatefrompng($file);
+        }
+        if($info['mime']=='image/jpg' || $info['mime']=='image/jpeg' || $info['mime']=='image/pjpeg') {
+            $srcImg = imagecreatefromjpeg($file);
+        }   
+
+        $oldX = imageSX($srcImg);
+        $oldY = imageSY($srcImg);
+
+        if($oldX > $oldY) 
+        {
+            $imgW = $newWidth;
+            $imgH = $oldY*($newHeight / $oldX);
+        }
+        else if($oldX < $oldY) 
+        {
+            $imgW = $oldX*($newWidth / $oldY);
+            $imgH = $newHeight;
+        }
+        elseif($oldX == $oldY) 
+        {
+            $imgW = $newWidth;
+            $imgH = $newHeight;
+        }
+
+        $destImg = ImageCreateTrueColor($imgW,$imgH);
+
+        imagecopyresampled($destImg, $srcImg, 0, 0, 0, 0, $imgW, $imgH, $oldX, $oldY); 
+
+        // New save location
+        if($thumbnail)
+            $newPath = "" . $path . "Thumbnail " . $fileName ;
+        else
+            $newPath = "" . $path . $fileName;
+
+        if($info['mime']=='image/png') {
+            $result = imagepng($destImg, $newPath, $quality);
+        }
+        if($info['mime']=='image/jpg' || $info['mime']=='image/jpeg' || $info['mime']=='image/pjpeg') {
+            $result = imagejpeg($destImg, $newPath, $quality);
+        }
+
+        imagedestroy($destImg); 
+        imagedestroy($srcImg);
+
+        return $result;
     }
 
     private function XPathOBJ($rawData){
