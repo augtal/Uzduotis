@@ -23,7 +23,7 @@ class WebScrapperController extends Controller
     {
         $url = $request->input('url');
 
-        $data = $this->scrapeFile($request, 1, 'car');
+        $data = $this->scrapeFile($request, 6, 'car');
 
         // if(isNull($url)){
         //     $data = $this->scrape($url);
@@ -36,6 +36,14 @@ class WebScrapperController extends Controller
         return view('webscrapper')->with("url", $url)->with("data", $data);
     }
 
+    /**
+     * Scrapes test file
+     *
+     * @param Request $request
+     * @param int $nr   which test file to select
+     * @param string $adType    what advertisement type it is
+     * @return array   returns clean scraped data
+     */
     private function scrapeFile(Request $request, $nr, $adType){
         $sessionFile = "html_data" . $nr;
 
@@ -59,6 +67,12 @@ class WebScrapperController extends Controller
         return $this->dataCleanUp($dirtyData);
     }
 
+    /**
+     * Scrapes given url and returns clean data
+     *
+     * @param string $url   advertisement url
+     * @return array   returns clean data array
+     */
     private function scrape($url){
         $data = $this->getPage($url);
 
@@ -81,6 +95,12 @@ class WebScrapperController extends Controller
         return $this->dataCleanUp($dirtyData);
     }
 
+    /**
+     * Gets raw page data
+     *
+     * @param string $url   advertisement url
+     * @return string   returns raw page data
+     */
     private function getPage($url){
         $curl = curl_init();
 
@@ -95,10 +115,17 @@ class WebScrapperController extends Controller
 
         $data = curl_exec($curl);
         curl_close($curl);
+        dd($data);
 
         return $data;
     }
 
+    /**
+     * Converts raw page data to XPath object
+     *
+     * @param string $rawData   raw page data
+     * @return DOMXPath     webpage data as DOMXPath object
+     */
     private function XPathOBJ($rawData){
         $PageDom = new \DomDocument();
         libxml_use_internal_errors(true);
@@ -109,6 +136,13 @@ class WebScrapperController extends Controller
         return $PageXPath;
     }
 
+    /**
+     * Extracts wanted information from given DOMXPath object
+     *
+     * @param DOMXPath $PageXPath webpage data as DOMXPath object
+     * @param string $adType Advertisement type
+     * @return array    dirty data from webpage
+     */
     private function getDirtyDataFromPage($PageXPath, $adType){
         $data = array();
 
@@ -152,6 +186,12 @@ class WebScrapperController extends Controller
         return $data;
     }
 
+    /**
+     * Extracts information from car advertisment information table
+     *
+     * @param DOMXPath $PageXPath webpage data as DOMXPath object
+     * @return array    dirty data array
+     */
     private function extractCar($PageXPath){
         $data = array();
         $query = '//*[@id="car-attributes"]/div[1]/div';
@@ -173,6 +213,12 @@ class WebScrapperController extends Controller
         return $data;
     }
 
+    /**
+     * Extracts information from camper advertisment information table
+     *
+     * @param DOMXPath $PageXPath webpage data as DOMXPath object
+     * @return array    dirty data array
+     */
     private function extractCamper($PageXPath){
         $data = array();
         $nameQuery = '//*[@class="name"]';
@@ -188,6 +234,12 @@ class WebScrapperController extends Controller
         return $data;
     }
 
+    /**
+     * Downloads first image to the server
+     *
+     * @param array $data page dirty data
+     * @return string saved image filename with extension
+     */
     private function downloadImage($data){
         $title = str_replace(['.', '<', '>', '\\', '/', '|', '(', ')'],'', $data['title']);
         $extension = explode(".", $data['imageURL']);
@@ -216,6 +268,15 @@ class WebScrapperController extends Controller
         return $fileName;
     }
 
+    /**
+     * Rescales and saves image to the server
+     *
+     * @param string $fileName image file name with extension
+     * @param string $path image folder location
+     * @param array $params scaling parameter [width, height, quality]
+     * @param boolean $thumbnail is the image gonna be a thumbnail
+     * @return boolean  recsaling results
+     */
     private function rescaleImage($fileName, $path, $params, $thumbnail = FALSE){
         $newWidth = $params[0];
         $newHeight = $params[1];
@@ -273,6 +334,12 @@ class WebScrapperController extends Controller
         return $result;
     }
 
+    /**
+     * Cleans up data to fit specifications
+     *
+     * @param array $dirtyData dirty data to be cleaned
+     * @return array clean and ready to use data
+     */
     private function dataCleanUp($dirtyData){
         $cleanData = array();
 
@@ -337,6 +404,12 @@ class WebScrapperController extends Controller
         return $cleanData;
     }
 
+    /**
+     * Insert advertisement data to database
+     *
+     * @param array $data clean data
+     * @return boolean insert to database result
+     */
     private function insertToDBAdvertisement($data){
         if(!Advertisement::where('title', '=', $data['title'])->exists()){
             $advertisement = new Advertisement();
