@@ -13,7 +13,7 @@ use App\Models\Advertisement;
 class WebScrapperController extends Controller
 {
     private $user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Brave Chrome/83.0.4103.116 Safari/537.36";
-    private $proxy = "93.158.214.155:3128"; //93.158.214.155  Port:3128  HTTPS  Netherlands
+    private $proxy = ["51.15.8.75", "3738"]; //Proxy IP, Port
 
     private $image = [500,500,80]; //height, width, quality
     private $imageThumbnail = [250,250,80]; //height, width, quality
@@ -21,139 +21,103 @@ class WebScrapperController extends Controller
 
     public function main(Request $request)
     {
-        //$url = $request->input('url');
-        $url = "https://www.marktplaats.nl/a/auto-s/honda/m1765602260-honda-accord-2-0i-elegance-automaat.html";
-        
+        $url = $request->input('url');
+
+        //$data = $this->scrapeFile($request, 7, 'car');
+
         if(isNull($url)){
-            $data = $this->scrape($request, $url);
+            $data = $this->scrape($url);
         }
 
-        $this->insertToDBAdvertisement($data);
-        var_dump($data['image']);
+        if(!isNull($data)){
+            $this->insertToDBAdvertisement($data);
+        }
 
         return view('webscrapper')->with("url", $url)->with("data", $data);
     }
 
-    private function insertToDBAdvertisement($data){
-        if(!Advertisement::where('title', '=', $data['title'])->exists()){
-            $advertisement = new Advertisement();
+    private function scrapeFile(Request $request, $nr, $adType){
+        $sessionFile = "html_data" . $nr;
 
-            $advertisement->title = $data['title'];
-            $advertisement->year = $data['year'];
-            $advertisement->mileage = $data['mileage'];
-            $advertisement->price = $data['price'];
-            $advertisement->make_model = $data['make_model'];
-            $advertisement->fuel = $data['fuel'];
-            $advertisement->body_type = $data['body_type'];
-            $advertisement->views = $data['views'];
-            $advertisement->description = $data['description'];
-
-            $advertisement->save();
-            return true;
-        }
-        else
-            return false;
-    }
-
-    private function scrape(Request $request, $url){
-        // $data = $this->getPage($url);
-
-        if (!$request->session()->has('html_data1')){
-            $filename = "C:\\Users\\RedenIce\\Desktop\\MySpace\\html.txt";
+        if (!$request->session()->has($sessionFile)){
+            $filename = "C:\\Users\\RedenIce\\Desktop\\MySpace\\html" . $nr . ".txt";
 
             $handle = fopen($filename, 'r') or die("can't open file");
             $data = fread($handle, filesize($filename));
             fclose($handle);
-            $request->session()->put('html_data1', $data);
-        }
-        elseif(!$request->session()->has('html_data2')){
-            $filename = "C:\\Users\\RedenIce\\Desktop\\MySpace\\html2.txt";
-
-            $handle = fopen($filename, 'r') or die("can't open file");
-            $data = fread($handle, filesize($filename));
-            fclose($handle);
-            $request->session()->put('html_data2', $data);
+            $request->session()->put($sessionFile, $data);
         }
 
-        $data = $request->session()->get('html_data1');
+        $data = $request->session()->get($sessionFile);
 
         $PageXPath = $this->XPathOBJ($data);
 
-        $dirtyData = $this->getDirtyDataFromPage($PageXPath);
+        $dirtyData = $this->getDirtyDataFromPage($PageXPath, $adType);
 
         $dirtyData['image'] = $this->downloadImage($dirtyData);
 
         return $this->dataCleanUp($dirtyData);
     }
 
-    private function dataCleanUp($dirtyData){
-        $cleanData = array();
+    private function scrape($url){
+        $data = $this->getPage($url);
 
-        if (array_key_exists('title', $dirtyData))
-            $cleanData['title'] = $dirtyData['title'];
-        else 
-            $cleanData['title'] = null;
-
-        if (array_key_exists('bouwjaar', $dirtyData))
-            $cleanData['year'] = intval($dirtyData['bouwjaar']);
-        else
-            $cleanData['year'] = null;
-        
-        if (array_key_exists('kilometerstand', $dirtyData))
-        {
-            preg_match_all("/\d+\.\d+/", $dirtyData['kilometerstand'], $matches);
-            $milage = floatval(str_replace('.', '', $matches[0][0]));
-            $cleanData['mileage'] = intval(round($milage, 0));
+        if($data == ""){
+            echo "Webscrapper could not reach the site.";
+            return null;
         }
-        else
-            $cleanData['mileage'] = null;
 
-        if (array_key_exists('price', $dirtyData)){
-            preg_match_all("/\d+,\d+/", str_replace('.', '', $dirtyData['price']), $matches);
-            $cleanData['price'] = floatval(str_replace('.', '', $matches[0][0]));;
-        }
-        else
-            $cleanData['price'] = null;
+        $PageXPath = $this->XPathOBJ($data);
 
-        if (array_key_exists('merk', $dirtyData))
-            $cleanData['make_model'] = $dirtyData['merk'];
-        else
-            $cleanData['make_model'] = null;
+        if (str_contains($url, "caravans-en-kamperen"))
+            $adType = 'caravan';
+        else if (str_contains($url, "auto-s"))
+            $adType = 'car';
 
-        if (array_key_exists('brandstof', $dirtyData))
-            $cleanData['fuel'] = $dirtyData['brandstof'];
-        else
-            $cleanData['fuel'] = null;
-    
-        if (array_key_exists('carrosserie', $dirtyData))
-            $cleanData['body_type'] = $dirtyData['carrosserie'];
-        else
-            $cleanData['body_type'] = null;
+        $dirtyData = $this->getDirtyDataFromPage($PageXPath, $adType);
 
-        if (array_key_exists('views', $dirtyData))
-            $cleanData['views'] = $dirtyData['views'];
-        else
-            $cleanData['views'] = null;
+        $dirtyData['image'] = $this->downloadImage($dirtyData);
 
-        if (array_key_exists('description', $dirtyData))
-            $cleanData['description'] = str_replace("\r\n", "", $dirtyData['description']);
-        else
-            $cleanData['description'] = null;
-
-        if (array_key_exists('image', $dirtyData))
-            $cleanData['image'] = $dirtyData['image'];
-        else
-            $cleanData['image'] = null;
-        
-        return $cleanData;
+        return $this->dataCleanUp($dirtyData);
     }
 
-    private function getDirtyDataFromPage($PageXPath){
+    private function getPage($url){
+        $curl = curl_init();
+
+        curl_setopt($curl, CURLOPT_URL, $url);
+        // curl_setopt($curl, CURLOPT_PROXY, $this->proxy[0]);
+        // curl_setopt($curl, CURLOPT_PROXYPORT, $this->proxy[1]);
+        curl_setopt($curl, CURLOPT_VERBOSE, 1);
+        curl_setopt($curl, CURLOPT_FOLLOWLOCATION, 1);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($curl, CURLOPT_HEADER, 1);
+        curl_setopt($curl, CURLOPT_USERAGENT, $this->user_agent);
+
+        $data = curl_exec($curl);
+        curl_close($curl);
+
+        return $data;
+    }
+
+    private function XPathOBJ($rawData){
+        $PageDom = new \DomDocument();
+        libxml_use_internal_errors(true);
+        $PageDom->loadHTML($rawData);
+
+        $PageXPath = new \DOMXPath($PageDom);
+
+        return $PageXPath;
+    }
+
+    private function getDirtyDataFromPage($PageXPath, $adType){
         $data = array();
+        dd($PageXPath);
 
         #title
-        $query = '//*[@id="title"]';
+        // $query = '//*[@id="title"]';
+        $query = '/html/body/div[4]/div[3]/section/section[1]/section[1]/section[1]/h1';
         $data['title'] = $PageXPath->query($query)[0]->nodeValue;
+        dd($data);
 
         #views
         $query = '//*[@id="content"]/section/section[1]/section[1]/section[1]/div[1]/span[1]/span[3]';
@@ -169,22 +133,18 @@ class WebScrapperController extends Controller
         $data['imageURL'] = $item;
 
         #identify what kind of advertisement it is
-        $query = '//*[@id="content"]/section/section[1]/section[4]/div[2]/div[.]/h2';
-        $advertisementType = $PageXPath->query($query)[0]->nodeValue;
-        preg_match_all('/\S+/', $advertisementType, $type);
-
         // for car
-        if (strtolower($type[0][0]) == "samenvatting"){
+        if (strtolower($adType) == "car"){
             $data = array_merge($data, $this->extractCar($PageXPath));
         }
         // for camper
-        elseif(strtolower($type[0][0]) == "kenmerken"){
+        elseif(strtolower($adType) == "caravan"){
             $data = array_merge($data, $this->extractCamper($PageXPath));
 
         }
 
         #item description
-        $query = '//*[@id="vip-ad-description"]/text()';
+        $query = '//*[@id="vip-ad-description"]/.//text()';
         $item = $PageXPath->query($query);
         $desc = "";
         foreach ($item as $node) {
@@ -231,25 +191,8 @@ class WebScrapperController extends Controller
         return $data;
     }
 
-    private function getPage($url){
-        $curl = curl_init();
-
-        curl_setopt($curl, CURLOPT_URL, $url);
-        curl_setopt($curl, CURLOPT_PROXY, $this->proxy);
-        curl_setopt($curl, CURLOPT_VERBOSE, 1);
-        curl_setopt($curl, CURLOPT_FOLLOWLOCATION, 1);
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($curl, CURLOPT_HEADER, 1);
-        curl_setopt($curl, CURLOPT_USERAGENT, $this->user_agent);
-
-        $data = curl_exec($curl);
-        curl_close($curl);
-
-        return $data;
-    }
-
     private function downloadImage($data){
-        $title = str_replace('.','', $data['title']);
+        $title = str_replace(['.', '<', '>', '\\', '/', '|', '(', ')'],'', $data['title']);
         $extension = explode(".", $data['imageURL']);
         $fileName = "" . $title . "." . strtolower($extension[count($extension)-1]);
 
@@ -257,7 +200,7 @@ class WebScrapperController extends Controller
             $curl = curl_init();
 
             curl_setopt($curl, CURLOPT_URL, $data['imageURL']);
-            curl_setopt($curl, CURLOPT_PROXY, $this->proxy);
+            // curl_setopt($curl, CURLOPT_PROXY, $this->proxy);
             curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
             curl_setopt($curl, CURLOPT_HEADER, 0);
             curl_setopt($curl, CURLOPT_USERAGENT, $this->user_agent);
@@ -333,13 +276,88 @@ class WebScrapperController extends Controller
         return $result;
     }
 
-    private function XPathOBJ($rawData){
-        $PageDom = new \DomDocument();
-        libxml_use_internal_errors(true);
-        $PageDom->loadHTML($rawData);
+    private function dataCleanUp($dirtyData){
+        $cleanData = array();
 
-        $PageXPath = new \DOMXPath($PageDom);
+        if (array_key_exists('title', $dirtyData))
+            $cleanData['title'] = $dirtyData['title'];
+        else 
+            $cleanData['title'] = null;
 
-        return $PageXPath;
+        if (array_key_exists('bouwjaar', $dirtyData))
+            $cleanData['year'] = intval($dirtyData['bouwjaar']);
+        else
+            $cleanData['year'] = null;
+        
+        if (array_key_exists('kilometerstand', $dirtyData))
+        {
+            if(preg_match_all("/\d+\.?\d+/", $dirtyData['kilometerstand'], $matches)){
+                $milage = floatval(str_replace('.', '', $matches[0][0]));
+                $cleanData['mileage'] = intval(round($milage, 0));
+            }
+        }
+        else
+            $cleanData['mileage'] = null;
+
+        if (array_key_exists('price', $dirtyData)){
+            if(preg_match_all("/\d+,?\d+/", str_replace('.', '', $dirtyData['price']), $matches)){
+                $cleanData['price'] = floatval(str_replace('.', '', $matches[0][0]));;
+            }
+        }
+        else
+            $cleanData['price'] = null;
+
+        if (array_key_exists('merk', $dirtyData))
+            $cleanData['make_model'] = $dirtyData['merk'];
+        else
+            $cleanData['make_model'] = null;
+
+        if (array_key_exists('brandstof', $dirtyData))
+            $cleanData['fuel'] = $dirtyData['brandstof'];
+        else
+            $cleanData['fuel'] = null;
+    
+        if (array_key_exists('carrosserie', $dirtyData))
+            $cleanData['body_type'] = $dirtyData['carrosserie'];
+        else
+            $cleanData['body_type'] = null;
+
+        if (array_key_exists('views', $dirtyData))
+            $cleanData['views'] = $dirtyData['views'];
+        else
+            $cleanData['views'] = null;
+
+        if (array_key_exists('description', $dirtyData))
+            $cleanData['description'] = str_replace("\r\n", "", $dirtyData['description']);
+        else
+            $cleanData['description'] = null;
+
+        if (array_key_exists('image', $dirtyData))
+            $cleanData['image'] = $dirtyData['image'];
+        else
+            $cleanData['image'] = null;
+        
+        return $cleanData;
+    }
+
+    private function insertToDBAdvertisement($data){
+        if(!Advertisement::where('title', '=', $data['title'])->exists()){
+            $advertisement = new Advertisement();
+
+            $advertisement->title = $data['title'];
+            $advertisement->year = $data['year'];
+            $advertisement->mileage = $data['mileage'];
+            $advertisement->price = $data['price'];
+            $advertisement->make_model = $data['make_model'];
+            $advertisement->fuel = $data['fuel'];
+            $advertisement->body_type = $data['body_type'];
+            $advertisement->views = $data['views'];
+            $advertisement->description = $data['description'];
+
+            $advertisement->save();
+            return true;
+        }
+        else
+            return false;
     }
 }
